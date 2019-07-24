@@ -4,7 +4,7 @@
   "description": "",
   "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "elm make src/Main.elm --output=src/elm-main.js && npx webpack && npx webpack-cli serve"
   },
   "keywords": [],
   "author": "",
