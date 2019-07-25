@@ -26,6 +26,16 @@ main =
 -- MODEL
 type KeyState = Up | Down
 
+type alias InitFlags = {
+  totalX: Float,
+  totalY: Float}
+
+type alias BallState = {
+  x: Float,
+  y: Float,
+  acclX: Float,
+  acclY: Float}
+
 type alias BoardState = {
   acceleration: Float,
   x: Float}
@@ -36,17 +46,21 @@ type alias ControlsState = {
 
 type alias GameState = {
     board: BoardState,
-    controls: ControlsState}
+    ball: BallState,
+    controls: ControlsState,
+    field: (Float, Float)}
 
 type alias Model = {
   pressedKeys: List String,
   gameState: GameState}
 
-init : () -> (Model, Cmd Msg)
-init _ =
+init : InitFlags -> (Model, Cmd Msg)
+init initFlags =
   (Model [] {
-    controls = { left = Up, right = Up },
-    board = { acceleration = 0, x = 0  }
+      controls = { left = Up, right = Up }
+    , ball = { x = initFlags.totalX / 2, y = initFlags.totalY / 2, acclX = 0, acclY = -10}
+    , board = { acceleration = 0, x = initFlags.totalX / 2  }
+    , field = (initFlags.totalX, initFlags.totalY)
   }, Cmd.none)
 
 
@@ -76,14 +90,31 @@ calcBoardAccelerationAfterTick currentAccl =
   if (currentAccl == 0 || Basics.abs currentAccl < 1.001) then 0
   else let sign = currentAccl / Basics.abs currentAccl in (Basics.sqrt (Basics.abs currentAccl)) * sign
 
+calcBallState: BallState -> (Float, Float) -> BallState 
+calcBallState ball (totalX, totalY) = 
+  let newX = ball.x + ball.acclX
+      newY = ball.y + ball.acclY
+      bounceTreshold = 40
+      updatedPosition = { ball| x = newX, y = newY }
+      in if ((ball.x > totalX - bounceTreshold && ball.acclX > 0)|| 
+              (ball.x < bounceTreshold && ball.acclX < 0)) 
+          then { updatedPosition | acclX = updatedPosition.acclX * -1 }
+          else if ((ball.y > totalY - bounceTreshold && ball.acclY > 0)|| 
+                    (ball.y < bounceTreshold && ball.acclY < 0))
+                  then { updatedPosition | acclY = updatedPosition.acclY * -1 }
+               else updatedPosition
+
 gameLoop: Model -> Model
 gameLoop model = 
   let boardAcceleration = calcBoardAcceleration model.gameState.controls model.gameState.board.acceleration
       boardAccelerationAfterTick = calcBoardAccelerationAfterTick boardAcceleration
+      ballState = calcBallState model.gameState.ball model.gameState.field
       board = model.gameState.board
       in (Model [(Debug.toString model.gameState.controls)] {
-        controls = model.gameState.controls,
-        board = { x = board.x + boardAcceleration, acceleration = boardAccelerationAfterTick }
+          controls = model.gameState.controls
+        , ball = ballState
+        , board = { x = board.x + boardAcceleration, acceleration = boardAccelerationAfterTick }
+        , field = model.gameState.field
       })
 
 decodeJsMessage: String -> Msg
@@ -106,8 +137,11 @@ update msg model =
            updatedGameState = { game | controls = keysToControls model rawKey Up }
               in ( { model | pressedKeys =  [(Debug.toString game.controls)]
               , gameState = updatedGameState }, Cmd.none )
-      GameFrame -> (gameLoop model, renderUpdatePort (Debug.toString model.gameState.board.x))
+      GameFrame -> (gameLoop model, renderUpdatePort (
+        Debug.toString model.gameState.board.x ++ ", " ++ Debug.toString model.gameState.ball.x ++ ", " ++ Debug.toString model.gameState.ball.y ))
       ErrorMsg -> (model, Cmd.none) -- i should have visualized it somehow
+
+
 
 -- SUBSCRIPTIONS
 
