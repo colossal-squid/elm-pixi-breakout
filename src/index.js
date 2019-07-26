@@ -74,10 +74,10 @@ import { Elm } from './elm-main'
 
     // This function is a callback from Elm's game loop into pixi
     function render(data) {
-        let [boardX, ballX, ballY] = data.split(',')
-        board.x = Number(boardX);
-        ball.x = Number(ballX);
-        ball.y = Number(ballY);
+        let {boardX, ballState, bricksState} = JSON.parse(data);
+        board.x = boardX;
+        ball.x = ballState.x;
+        ball.y = ballState.y;
     }
 
     document.body.appendChild(pixiApp.view);

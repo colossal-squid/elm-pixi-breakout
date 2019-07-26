@@ -4,7 +4,7 @@ import Browser
 import Html exposing (Html, Attribute, span, div, p, text)
 import Html.Attributes exposing (class)
 import Keyboard exposing (RawKey)
-import Json.Encode as E
+import Json.Encode exposing (encode, Value, string, int, float, bool, list, object)
 
 -- from pixi to Elm
 port gameLoopPort: (String -> msg) -> Sub msg
@@ -14,6 +14,9 @@ port renderUpdatePort: String -> Cmd msg
 boardSpeedAcclPx: Float
 boardSpeedAcclPx = 12.0
 
+ballAcceleration: Float
+ballAcceleration = 12.5
+
 main =
   Browser.element
     { init = init
@@ -22,9 +25,14 @@ main =
     , view = view
     }
 
-
 -- MODEL
 type KeyState = Up | Down
+
+type alias Brick = {
+  x: Float,
+  y: Float,
+  w: Float,
+  h: Float}
 
 type alias InitFlags = {
   totalX: Float,
@@ -56,6 +64,7 @@ type alias ControlsState = {
 type alias GameState = {
     board: BoardState,
     ball: BallState,
+    bricks: List Brick,
     controls: ControlsState,
     field: (Float, Float)}
 
@@ -72,14 +81,44 @@ init initFlags =
               , w = initFlags.ballW
               , h = initFlags.ballH
               , acclX = 0
-              , acclY = -10}
+              , acclY = ballAcceleration * -1}
     , board = { acceleration = 0
               , x = initFlags.totalX / 2
               , y = initFlags.totalY * 0.85
               , w = initFlags.boardW
               , h = initFlags.boardH  }
     , field = (initFlags.totalX, initFlags.totalY)
+    , bricks = [
+      Brick 40 40 80 80
+    ]
   }, Cmd.none)
+
+
+-- ENCODERS
+encodeState : GameState -> Value
+encodeState state =
+  object
+    [ 
+       ("boardX", float state.board.x)
+      ,("ballState", encodeBall state.ball)
+      ,("bricksState", enccodeBricks state.bricks)
+    ]
+
+encodeBall: BallState -> Value
+encodeBall ball = object
+    [ 
+        ("x", float ball.x)
+      , ("y", float ball.y)
+    ]
+
+enccodeBricks: List Brick -> Value
+enccodeBricks bricks = 
+  list (\b -> object [
+     ("x", float b.x)
+    ,("y", float b.y)
+    ,("w", float b.w)
+    ,("h", float b.h)
+  ]) bricks
 
 
 -- UPDATE
@@ -127,7 +166,7 @@ calcBallState ball (totalX, totalY) board =
                   -- only interests me if its the top of the board
                   -- oposite case is eventually gonna kill ya anyway
                   then if ball.y < board.y then 
-                    { updatedPosition | acclY = updatedPosition.acclY * -1, acclX = board.acceleration }
+                    { updatedPosition | acclY = updatedPosition.acclY * -1, acclX = board.acceleration * 1.5 }
                   else updatedPosition
                else updatedPosition
 
@@ -146,6 +185,7 @@ gameLoop model =
                    ,w = board.w
                    ,h = board.h }
         , field = model.gameState.field
+        , bricks = model.gameState.bricks
       })
 
 decodeJsMessage: String -> Msg
@@ -153,6 +193,9 @@ decodeJsMessage string =
   case string of 
     "GameFrame" -> GameFrame
     _ -> ErrorMsg
+
+encodeJsMessage: Model -> String
+encodeJsMessage model = Json.Encode.encode 0 (encodeState model.gameState)
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -167,8 +210,7 @@ update msg model =
            updatedGameState = { game | controls = keysToControls model rawKey Up }
               in ( { model | pressedKeys =  [(Debug.toString game.controls)]
               , gameState = updatedGameState }, Cmd.none )
-      GameFrame -> (gameLoop model, renderUpdatePort (
-        Debug.toString model.gameState.board.x ++ ", " ++ Debug.toString model.gameState.ball.x ++ ", " ++ Debug.toString model.gameState.ball.y ))
+      GameFrame -> (gameLoop model, renderUpdatePort (encodeJsMessage model))
       ErrorMsg -> (model, Cmd.none) -- i should have visualized it somehow
 
 rectsIntersect: Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float -> Bool
