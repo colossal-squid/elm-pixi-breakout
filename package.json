@@ -4,7 +4,8 @@
   "description": "",
   "private": true,
   "scripts": {
-    "start": "elm make src/Main.elm --output=src/elm-main.js --debug && npx webpack && npx webpack-cli serve"
+    "start": "elm make src/Main.elm --output=src/elm-main.js && npx webpack && npx webpack-cli serve",
+    "start_debug": "elm make src/Main.elm --output=src/elm-main.js --debug && npx webpack && npx webpack-cli serve"
   },
   "keywords": [],
   "author": "",

@@ -15,7 +15,7 @@ boardSpeedAcclPx: Float
 boardSpeedAcclPx = 12.0
 
 ballAcceleration: Float
-ballAcceleration = 12.5
+ballAcceleration = 10.5
 
 main =
   Browser.element
@@ -89,7 +89,23 @@ init initFlags =
               , h = initFlags.boardH  }
     , field = (initFlags.totalX, initFlags.totalY)
     , bricks = [
-      Brick 40 40 80 80
+       Brick 40 40 80 40
+      ,Brick 120 40 80 40
+      ,Brick 200 40 80 40
+      ,Brick 280 40 80 40
+      ,Brick 360 40 80 40
+      ,Brick 440 40 80 40
+      ,Brick 520 40 80 40
+      ,Brick 600 40 80 40
+
+      ,Brick 40 80 80 40
+      ,Brick 120 80 80 40
+      ,Brick 200 80 80 40
+      ,Brick 280 80 80 40
+      ,Brick 360 80 80 40
+      ,Brick 440 80 80 40
+      ,Brick 520 80 80 40
+      ,Brick 600 80 80 40
     ]
   }, Cmd.none)
 
@@ -101,7 +117,7 @@ encodeState state =
     [ 
        ("boardX", float state.board.x)
       ,("ballState", encodeBall state.ball)
-      ,("bricksState", enccodeBricks state.bricks)
+      ,("bricksState", encodeBricks state.bricks)
     ]
 
 encodeBall: BallState -> Value
@@ -111,8 +127,8 @@ encodeBall ball = object
       , ("y", float ball.y)
     ]
 
-enccodeBricks: List Brick -> Value
-enccodeBricks bricks = 
+encodeBricks: List Brick -> Value
+encodeBricks bricks = 
   list (\b -> object [
      ("x", float b.x)
     ,("y", float b.y)
@@ -147,34 +163,39 @@ calcBoardAccelerationAfterTick currentAccl =
   if (currentAccl == 0 || Basics.abs currentAccl < 1.001) then 0
   else let sign = currentAccl / Basics.abs currentAccl in (Basics.sqrt (Basics.abs currentAccl)) * sign
 
-calcBallState: BallState -> (Float, Float) -> BoardState -> BallState 
-calcBallState ball (totalX, totalY) board = 
+calcBallState: BallState -> (Float, Float) -> BoardState -> List Brick -> (BallState, List Brick) 
+calcBallState ball (totalX, totalY) board bricks = 
   let newX = ball.x + ball.acclX
       newY = ball.y + ball.acclY
       bounceTreshold = 40
-      updatedPosition = { ball| x = newX, y = newY }
+      updatedBall = { ball| x = newX, y = newY }
+      bricksToRemove = List.take 1 (List.filter (\b -> rectsIntersect ball.x ball.y ball.w ball.h b.x b.y b.w b.h ) bricks)
+      filteredBricks = List.filter (\a -> not (List.member a bricksToRemove) ) bricks
       -- collision with horizontal screen bounds
       in if ((ball.x > totalX - bounceTreshold && ball.acclX > 0)|| 
               (ball.x < bounceTreshold && ball.acclX < 0)) 
-          then { updatedPosition | acclX = updatedPosition.acclX * -1 }
+          then ({ updatedBall | acclX = updatedBall.acclX * -1 }, bricks)
       -- collision with vertical screen bounds
           else if ((ball.y > totalY - bounceTreshold && ball.acclY > 0)|| 
                     (ball.y < bounceTreshold && ball.acclY < 0))
-                  then { updatedPosition | acclY = updatedPosition.acclY * -1 }
+                  then ({ updatedBall | acclY = updatedBall.acclY * -1 }, bricks)
+      -- collision with bricks
+          else if List.length bricksToRemove > 0
+                  then ({ updatedBall | acclY = updatedBall.acclY * -1 }, filteredBricks)
       -- collision with board
           else if rectsIntersect (ball.x - ball.w/2) (ball.y - ball.h/2) ball.w ball.h (board.x - board.w/2) (board.y - board.h/2) board.w board.h && (ball.acclY > 0)
                   -- only interests me if its the top of the board
                   -- oposite case is eventually gonna kill ya anyway
                   then if ball.y < board.y then 
-                    { updatedPosition | acclY = updatedPosition.acclY * -1, acclX = board.acceleration * 1.5 }
-                  else updatedPosition
-               else updatedPosition
+                    ({ updatedBall | acclY = updatedBall.acclY * -1, acclX = board.acceleration * 1.5 }, bricks)
+                  else (updatedBall, bricks)
+               else (updatedBall, bricks)
 
 gameLoop: Model -> Model
 gameLoop model = 
   let boardAcceleration = calcBoardAcceleration model.gameState.controls model.gameState.board.acceleration
       boardAccelerationAfterTick = calcBoardAccelerationAfterTick boardAcceleration
-      ballState = calcBallState model.gameState.ball model.gameState.field model.gameState.board
+      (ballState, bricks) = calcBallState model.gameState.ball model.gameState.field model.gameState.board model.gameState.bricks
       board = model.gameState.board
       in (Model [(Debug.toString model.gameState.controls)] {
           controls = model.gameState.controls
@@ -185,7 +206,7 @@ gameLoop model =
                    ,w = board.w
                    ,h = board.h }
         , field = model.gameState.field
-        , bricks = model.gameState.bricks
+        , bricks = bricks
       })
 
 decodeJsMessage: String -> Msg
@@ -240,4 +261,6 @@ view model =
     , p [ ] [text( "Keys pressed: " ++ Debug.toString model.pressedKeys)]
     , p [ ] [text( "Ball: " ++ Debug.toString model.gameState.ball)]
     , p [ ] [text( "Board: " ++ Debug.toString model.gameState.board)]
+    , p [ ] [text( "Bricks: (" ++ Debug.toString (List.length model.gameState.bricks) ++ ") " ++ Debug.toString model.gameState.bricks)]
+
   ]
