@@ -9,7 +9,11 @@ import { Elm } from './elm-main'
     // init the ELM part of the game
     let elmApp = createElmApp('#elm', {
         totalX: pixiApp.renderer.width,
-        totalY: pixiApp.renderer.height
+        totalY: pixiApp.renderer.height,
+        boardW: board.width,
+        boardH: board.height,
+        ballW: ball.width,
+        ballH: ball.height
     });
 
     pixiApp.ticker.add(() => {
