@@ -88,25 +88,10 @@ init initFlags =
               , w = initFlags.boardW
               , h = initFlags.boardH  }
     , field = (initFlags.totalX, initFlags.totalY)
-    , bricks = [
-       Brick 40 40 80 40
-      ,Brick 120 40 80 40
-      ,Brick 200 40 80 40
-      ,Brick 280 40 80 40
-      ,Brick 360 40 80 40
-      ,Brick 440 40 80 40
-      ,Brick 520 40 80 40
-      ,Brick 600 40 80 40
-
-      ,Brick 40 80 80 40
-      ,Brick 120 80 80 40
-      ,Brick 200 80 80 40
-      ,Brick 280 80 80 40
-      ,Brick 360 80 80 40
-      ,Brick 440 80 80 40
-      ,Brick 520 80 80 40
-      ,Brick 600 80 80 40
-    ]
+    , bricks = List.map (\x->Brick (40+x*90) 40 80 40) [0,1,2,3,4,5,6,7] ++ 
+               List.map (\x->Brick (55+x*90) 100 80 40) [0,1,2,3,4,5,6,7] ++ 
+               List.map (\x->Brick (40+x*90) 180 80 40) [0,1,2,3,4,5,6,7] ++ 
+               List.map (\x->Brick (55+x*90) 270 80 40) [0,1,2,3,4,5,6,7]
   }, Cmd.none)
 
 
